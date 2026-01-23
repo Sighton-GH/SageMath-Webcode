@@ -20,35 +20,43 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-FROM ros:foxy
+FROM ros:humble
 
 SHELL ["/bin/bash", "-c"]
 
-# dependencies
-RUN apt-get update --fix-missing && \
-    apt-get install -y git \
-                       nano \
-                       vim \
-                       python3-pip \
-                       libeigen3-dev \
-                       tmux \
-                       ros-foxy-rviz2
-RUN apt-get -y dist-upgrade
-RUN pip3 install transforms3d
+ENV DEBIAN_FRONTEND=noninteractive
 
-# f1tenth gym
-RUN git clone https://github.com/f1tenth/f1tenth_gym
-RUN cd f1tenth_gym && \
-    pip3 install -e .
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git \
+        nano \
+        vim \
+        python3-pip \
+        python3-venv \
+        python3-dev \
+        libeigen3-dev \
+        tmux \
+        ros-humble-rviz2 && \
+    rm -rf /var/lib/apt/lists/*
 
-# ros2 gym bridge
-RUN mkdir -p sim_ws/src/f1tenth_gym_ros
+WORKDIR /sim_ws
+RUN mkdir -p /sim_ws/src/f1tenth_gym_ros
 COPY . /sim_ws/src/f1tenth_gym_ros
-RUN source /opt/ros/foxy/setup.bash && \
-    cd sim_ws/ && \
-    apt-get update --fix-missing && \
-    rosdep install -i --from-path src --rosdistro foxy -y && \
-    colcon build
 
-WORKDIR '/sim_ws'
+RUN python3 -m venv --system-site-packages /sim_ws/.venv && \
+    source /sim_ws/.venv/bin/activate && \
+    pip install -U pip && \
+    pip install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym
+
+ENV VIRTUAL_ENV=/sim_ws/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+RUN source /opt/ros/humble/setup.bash && \
+    if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then \
+        rosdep init; \
+    fi && \
+    rosdep update && \
+    rosdep install -i --from-paths /sim_ws/src --rosdistro humble -y && \
+    colcon build --symlink-install
+
 ENTRYPOINT ["/bin/bash"]
