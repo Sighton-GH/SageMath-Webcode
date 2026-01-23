@@ -67,15 +67,6 @@ from f1tenth_gym.envs.reset import ResetStrategy
 from f1tenth_gym.envs.track import Track, Raceline
 
 
-def _looks_like_path(map_path: str) -> bool:
-    return (
-        "/" in map_path
-        or "\\" in map_path
-        or map_path.endswith(".yaml")
-        or map_path.endswith(".yml")
-    )
-
-
 def _resolve_yaml_path(base_path: pathlib.Path) -> pathlib.Path:
     if base_path.suffix in (".yaml", ".yml"):
         return base_path
@@ -90,12 +81,13 @@ def _resolve_yaml_path(base_path: pathlib.Path) -> pathlib.Path:
     return base_path.with_suffix(".yaml")
 
 
-def _resolve_map_base(map_path: str) -> pathlib.Path:
+def _resolve_map_yaml_path(map_path: str) -> pathlib.Path | None:
     path = pathlib.Path(map_path)
-    if path.is_absolute():
-        return path
-    share_dir = pathlib.Path(get_package_share_directory("f1tenth_gym_ros"))
-    return share_dir / map_path
+    if not path.is_absolute():
+        share_dir = pathlib.Path(get_package_share_directory("f1tenth_gym_ros"))
+        path = share_dir / map_path
+    yaml_path = _resolve_yaml_path(path)
+    return yaml_path if yaml_path.exists() else None
 
 
 def _load_track_from_yaml(map_yaml_path: pathlib.Path, scale: float) -> tuple[Track, bool]:
@@ -192,12 +184,20 @@ class GymBridge(Node):
 
         scale = self.get_parameter('scale').value
         map_path = self.get_parameter('map_path').value
+        map_yaml_path = _resolve_map_yaml_path(map_path)
 
-        if _looks_like_path(map_path):
-            map_base = _resolve_map_base(map_path)
-            map_yaml_path = _resolve_yaml_path(map_base)
+        if map_yaml_path is not None:
             self.get_logger().info('Loading map from path: %s' % map_yaml_path)
-            loaded_map, has_reference_line = _load_track_from_yaml(map_yaml_path, scale)
+            try:
+                loaded_map = Track.from_track_path(map_yaml_path, track_scale=scale)
+                has_reference_line = (
+                    loaded_map.centerline is not None or loaded_map.raceline is not None
+                )
+            except (ValueError, FileNotFoundError) as ex:
+                if isinstance(ex, FileNotFoundError) or "centerline" in str(ex) or "raceline" in str(ex):
+                    loaded_map, has_reference_line = _load_track_from_yaml(map_yaml_path, scale)
+                else:
+                    raise
         else:
             self.get_logger().info('Loading map by name: %s' % map_path)
             loaded_map = Track.from_track_name(map_path, track_scale=scale)
