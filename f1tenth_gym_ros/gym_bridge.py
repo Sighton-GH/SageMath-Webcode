@@ -145,8 +145,11 @@ class GymBridge(Node):
         self.declare_parameter('opp_scan_topic', 'opp_scan')
         self.declare_parameter('opp_drive_topic', 'opp_drive')
         self.declare_parameter('scan_distance_to_base_link', 0.275)
-        self.declare_parameter('scan_fov', 4.7)
         self.declare_parameter('scan_beams', 1080)
+        self.declare_parameter('scan_range_min', 0.0)
+        self.declare_parameter('scan_range_max', 30.0)
+        self.declare_parameter('scan_angle_min', -135.0)
+        self.declare_parameter('scan_angle_max', 135.0)
         self.declare_parameter('map_path', 'levine')
         self.declare_parameter('map_img_ext', '.png')
         self.declare_parameter('num_agent', 1)
@@ -208,14 +211,19 @@ class GymBridge(Node):
                 'Map has no centerline/raceline; disabling frenet frame and lap counting.'
             )
 
-        scan_fov = self.get_parameter('scan_fov').value
         scan_beams = self.get_parameter('scan_beams').value
+        scan_range_min = self.get_parameter('scan_range_min').value
+        scan_range_max = self.get_parameter('scan_range_max').value
+        scan_angle_min = self.get_parameter('scan_angle_min').value
+        scan_angle_max = self.get_parameter('scan_angle_max').value
         scan_distance = self.get_parameter('scan_distance_to_base_link').value
         lidar_cfg = LiDARConfig(
+            enabled=True,
             num_beams=scan_beams,
-            field_of_view=scan_fov,
-            range_min=0.0,
-            range_max=30.0,
+            range_min=scan_range_min,
+            range_max=scan_range_max,
+            angle_min=np.deg2rad(scan_angle_min),
+            angle_max=np.deg2rad(scan_angle_max),
             base_link_to_lidar_tf=(scan_distance, 0.0, 0.0),
         )
         self.lidar_cfg = lidar_cfg

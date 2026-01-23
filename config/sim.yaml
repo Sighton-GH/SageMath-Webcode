@@ -37,19 +37,24 @@ bridge:
     # transform related
     scan_distance_to_base_link: 0.275
     
-    # laserscan parameters
-    scan_fov: 4.7
-    scan_beams: 1080
+    # laserscan parameters (default values are SICK TIM571 configuration (270° FOV))
+    scan_beams: 819
+    scan_range_min: 0.05 # 5cm
+    scan_range_max: 25.0 # 25m
+    # Angles have to be in degrees
+    scan_angle_min: -135.0 # -135°
+    scan_angle_max: 135.0 # 135°
 
     # map parameters
-    map_path: 'maps/levine'
+    map_path: 'maps/blank'
     map_img_ext: '.png'
 
     # car parameters and scale
+    # Supported vehicle parameters are 'f1tenth', 'fullscale', and 'f1fifth'
     vehicle_params: 'f1tenth'
     scale: 1.0
 
-    # opponent parameters
+    # number of agents, currently only supports 1 or 2
     num_agent: 1
 
     # ego starting pose on map
@@ -66,7 +71,10 @@ bridge:
     kb_teleop: True
 
     # use simulation time
+    # When true, the bridge will publish the simulation time on the /clock topic
+    # and the simulation will run as fast as possible.
     use_sim_time: False
 
-    # if false, only steps sim on new /drive messages
+    # If false, only steps sim on new /drive messages.
+    # If true, the simulation will step using a timer callback.
     async_mode: True
