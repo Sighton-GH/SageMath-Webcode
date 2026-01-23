@@ -20,20 +20,49 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os
+import pathlib
+import yaml
+
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.substitutions import Command
 from ament_index_python.packages import get_package_share_directory
-import os
-import yaml
+
+
+def _resolve_yaml_path(base_path: pathlib.Path) -> pathlib.Path:
+    if base_path.suffix in ('.yaml', '.yml'):
+        return base_path
+    candidates = (
+        base_path.with_suffix('.yaml'),
+        base_path.with_suffix('.yml'),
+        base_path.parent / f"{base_path.stem}_map.yaml",
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return base_path.with_suffix('.yaml')
+
+
+def _resolve_map_yaml_path(map_path: str, package_share: str) -> pathlib.Path:
+    if map_path.startswith(('/', '\\')):
+        return _resolve_yaml_path(pathlib.Path(map_path))
+    if '/' in map_path or '\\' in map_path:
+        return _resolve_yaml_path(pathlib.Path(package_share) / map_path)
+    try:
+        from f1tenth_gym.envs.track.utils import find_track_dir
+        track_dir = find_track_dir(map_path)
+        yaml_path = track_dir / f"{track_dir.stem}.yaml"
+        if not yaml_path.exists():
+            yaml_path = track_dir / f"{track_dir.stem}_map.yaml"
+        return yaml_path
+    except Exception:
+        return _resolve_yaml_path(pathlib.Path(package_share) / 'maps' / map_path)
 
 def generate_launch_description():
     ld = LaunchDescription()
-    config = os.path.join(
-        get_package_share_directory('f1tenth_gym_ros'),
-        'config',
-        'sim.yaml'
-        )
+    package_share = get_package_share_directory('f1tenth_gym_ros')
+    config = os.path.join(package_share, 'config', 'sim.yaml')
     config_dict = yaml.safe_load(open(config, 'r'))
     has_opp = config_dict['bridge']['ros__parameters']['num_agent'] > 1
     teleop = config_dict['bridge']['ros__parameters']['kb_teleop']
@@ -56,18 +85,28 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}],
     )
 
-    # Create custom yaml file for map server by copying the original yaml file and scaling the resolution by the sim.yaml scale
-    with open(config_dict['bridge']['ros__parameters']['map_path'] + '.yaml', 'r') as file:
+    # Create custom yaml file for map server by copying the original yaml file and scaling the resolution.
+    map_path = config_dict['bridge']['ros__parameters']['map_path']
+    map_yaml_path = _resolve_map_yaml_path(map_path, package_share)
+    with open(map_yaml_path, 'r') as file:
         map_yaml = yaml.safe_load(file)
-    map_yaml['resolution'] *= config_dict['bridge']['ros__parameters']['scale']
+    scale = config_dict['bridge']['ros__parameters']['scale']
+    map_yaml['resolution'] *= scale
     origin = map_yaml['origin']
     scaled_origin = (
-        origin[0] * config_dict['bridge']['ros__parameters']['scale'],
-        origin[1] * config_dict['bridge']['ros__parameters']['scale'],
+        origin[0] * scale,
+        origin[1] * scale,
         origin[2],
     )
     map_yaml['origin'] = scaled_origin
-    map_yaml['image'] = 'scaled_map' + config_dict['bridge']['ros__parameters']['map_img_ext']
+    image_field = map_yaml.get('image')
+    if not image_field:
+        raise ValueError('map yaml is missing image field')
+    image_path = pathlib.Path(image_field)
+    if not image_path.is_absolute():
+        image_path = map_yaml_path.parent / image_path
+    map_img_ext = image_path.suffix
+    map_yaml['image'] = 'scaled_map' + map_img_ext
 
     temp_yaml_path = None
     # Create a temporary directory to store the scaled map yaml and image
@@ -77,14 +116,14 @@ def generate_launch_description():
     os.makedirs(temp_dir, exist_ok=True)
 
     temp_yaml_path = os.path.join(temp_dir, 'scaled_map.yaml')
-    temp_img_path = os.path.join(temp_dir, 'scaled_map' + config_dict['bridge']['ros__parameters']['map_img_ext'])
+    temp_img_path = os.path.join(temp_dir, 'scaled_map' + map_img_ext)
 
     # Write the scaled map yaml to the temporary file
     with open(temp_yaml_path, 'w') as file:
         yaml.dump(map_yaml, file)
 
     # Copy the map image to the temporary directory
-    map_image_path = os.path.join(config_dict['bridge']['ros__parameters']['map_path'] + config_dict['bridge']['ros__parameters']['map_img_ext'])
+    map_image_path = image_path
     with open(temp_img_path, 'wb') as file:
         with open(map_image_path, 'rb') as img_file:
             file.write(img_file.read())
