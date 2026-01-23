@@ -52,6 +52,7 @@ ENV VIRTUAL_ENV=/sim_ws/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN source /opt/ros/humble/setup.bash && \
+    apt-get update && \
     if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then \
         rosdep init; \
     fi && \
