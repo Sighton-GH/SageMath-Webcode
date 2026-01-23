@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import pathlib
+
 import rclpy
 from rclpy.node import Node
 from rosgraph_msgs.msg import Clock
@@ -35,13 +37,106 @@ from geometry_msgs.msg import Transform
 from geometry_msgs.msg import Quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 from tf2_ros import TransformBroadcaster
+from ament_index_python.packages import get_package_share_directory
 
-import gymnasium as gym
 import numpy as np
+from PIL import Image
+from PIL.Image import Transpose
 from scipy.spatial.transform import Rotation
 
-import pathlib
-from f1tenth_gym.envs.f110_env import F110Env, Track
+from f1tenth_gym.envs import F110Env
+from f1tenth_gym.envs.env_config import (
+    EnvConfig,
+    ControlConfig,
+    SimulationConfig,
+    ObservationConfig,
+    ResetConfig,
+    LoopCounterMode,
+)
+from f1tenth_gym.envs.action import LongitudinalActionType, SteerActionType
+from f1tenth_gym.envs.dynamic_models import (
+    DynamicModel,
+    get_f1tenth_vehicle_parameters,
+    get_fullscale_vehicle_parameters,
+    get_f1fifth_vehicle_parameters,
+)
+from f1tenth_gym.envs.integrators import IntegratorType
+from f1tenth_gym.envs.lidar import LiDARConfig
+from f1tenth_gym.envs.observation import ObservationType
+from f1tenth_gym.envs.reset import ResetStrategy
+from f1tenth_gym.envs.track import Track, Raceline
+
+
+def _looks_like_path(map_path: str) -> bool:
+    return (
+        "/" in map_path
+        or "\\" in map_path
+        or map_path.endswith(".yaml")
+        or map_path.endswith(".yml")
+    )
+
+
+def _resolve_yaml_path(base_path: pathlib.Path) -> pathlib.Path:
+    if base_path.suffix in (".yaml", ".yml"):
+        return base_path
+    candidates = (
+        base_path.with_suffix(".yaml"),
+        base_path.with_suffix(".yml"),
+        base_path.parent / f"{base_path.stem}_map.yaml",
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return base_path.with_suffix(".yaml")
+
+
+def _resolve_map_base(map_path: str) -> pathlib.Path:
+    path = pathlib.Path(map_path)
+    if path.is_absolute():
+        return path
+    share_dir = pathlib.Path(get_package_share_directory("f1tenth_gym_ros"))
+    return share_dir / map_path
+
+
+def _load_track_from_yaml(map_yaml_path: pathlib.Path, scale: float) -> tuple[Track, bool]:
+    track_spec = Track.load_spec(track=map_yaml_path.stem, filespec=str(map_yaml_path))
+    track_spec.resolution = track_spec.resolution * scale
+    track_spec.origin = (
+        track_spec.origin[0] * scale,
+        track_spec.origin[1] * scale,
+        track_spec.origin[2],
+    )
+
+    image_path = map_yaml_path.parent / track_spec.image
+    image = Image.open(image_path).transpose(Transpose.FLIP_TOP_BOTTOM)
+    occupancy_map = np.array(image).astype(np.float32)
+    occupancy_map[occupancy_map <= 128] = 0.0
+    occupancy_map[occupancy_map > 128] = 255.0
+
+    centerline_path = map_yaml_path.parent / f"{map_yaml_path.stem}_centerline.csv"
+    raceline_path = map_yaml_path.parent / f"{map_yaml_path.stem}_raceline.csv"
+    centerline = None
+    raceline = None
+    if centerline_path.exists():
+        centerline = Raceline.from_centerline_file(centerline_path, track_scale=scale)
+    if raceline_path.exists():
+        raceline = Raceline.from_raceline_file(raceline_path, track_scale=scale)
+
+    if raceline is None:
+        raceline = centerline
+    if centerline is None:
+        centerline = raceline
+
+    track = Track(
+        spec=track_spec,
+        filepath=str(map_yaml_path.absolute()),
+        ext=image_path.suffix,
+        occupancy_map=occupancy_map,
+        centerline=centerline,
+        raceline=raceline,
+    )
+    has_reference_line = centerline is not None or raceline is not None
+    return track, has_reference_line
 
 class GymBridge(Node):
     def __init__(self):
@@ -85,45 +180,78 @@ class GymBridge(Node):
             raise ValueError('num_agents should be an int.')
 
         self.vehicle_params = None
-        if self.get_parameter('vehicle_params').value == 'f1tenth':
-            self.vehicle_params = F110Env.f1tenth_vehicle_params()
-        elif self.get_parameter('vehicle_params').value == 'fullscale':
-            self.vehicle_params = F110Env.fullscale_vehicle_params()
-        elif self.get_parameter('vehicle_params').value == 'f1fifth':
-            self.vehicle_params = F110Env.f1fifth_vehicle_params()
+        vehicle_params_key = self.get_parameter('vehicle_params').value
+        if vehicle_params_key == 'f1tenth':
+            self.vehicle_params = get_f1tenth_vehicle_parameters()
+        elif vehicle_params_key == 'fullscale':
+            self.vehicle_params = get_fullscale_vehicle_parameters()
+        elif vehicle_params_key == 'f1fifth':
+            self.vehicle_params = get_f1fifth_vehicle_parameters()
         else:
             raise ValueError('vehicle_params should be either f1tenth, fullscale, or f1fifth.')
 
         scale = self.get_parameter('scale').value
+        map_path = self.get_parameter('map_path').value
 
-        # Split the path and the name
-        path = self.get_parameter('map_path').value
-        name = path.split('/')[-1].split('.')[0]
-        path = path + '.yaml'
-        self.get_logger().info('Loading map: %s from path: %s' % (name, path))
+        if _looks_like_path(map_path):
+            map_base = _resolve_map_base(map_path)
+            map_yaml_path = _resolve_yaml_path(map_base)
+            self.get_logger().info('Loading map from path: %s' % map_yaml_path)
+            loaded_map, has_reference_line = _load_track_from_yaml(map_yaml_path, scale)
+        else:
+            self.get_logger().info('Loading map by name: %s' % map_path)
+            loaded_map = Track.from_track_name(map_path, track_scale=scale)
+            has_reference_line = loaded_map.centerline is not None or loaded_map.raceline is not None
 
-        # Load the yaml file
-        path = pathlib.Path(path)
-        loaded_map = Track.from_track_path(path, scale)
+        if not has_reference_line:
+            self.get_logger().warning(
+                'Map has no centerline/raceline; disabling frenet frame and lap counting.'
+            )
 
-        # env backend
-        self.env = gym.make(
-                            "f1tenth_gym:f1tenth-v0",
-                            config={
-                                "map": loaded_map,
-                                "num_agents": num_agents,
-                                "timestep": 0.01,
-                                "integrator": "rk4",
-                                "control_input": ["speed", "steering_angle"],
-                                "model": "st",
-                                "observation_config": {"type": "original"},
-                                "params": self.vehicle_params,
-                                "reset_config": {"type": "map_random_static"},
-                                "scale": scale,
-                                "lidar_dist": self.get_parameter("scan_distance_to_base_link").value
-                            },
-                            render_mode="rgb_array",
-                        )
+        scan_fov = self.get_parameter('scan_fov').value
+        scan_beams = self.get_parameter('scan_beams').value
+        scan_distance = self.get_parameter('scan_distance_to_base_link').value
+        lidar_cfg = LiDARConfig(
+            num_beams=scan_beams,
+            field_of_view=scan_fov,
+            range_min=0.0,
+            range_max=30.0,
+            base_link_to_lidar_tf=(scan_distance, 0.0, 0.0),
+        )
+        self.lidar_cfg = lidar_cfg
+
+        loop_counter = (
+            LoopCounterMode.FRENET_BASED if has_reference_line else LoopCounterMode.TOGGLE
+        )
+        compute_frenet = has_reference_line
+        simulation_cfg = SimulationConfig(
+            timestep=0.01,
+            integrator_timestep=0.01,
+            integrator=IntegratorType.RK4,
+            dynamics_model=DynamicModel.ST,
+            loop_counter=loop_counter,
+            compute_frenet_frame=compute_frenet,
+        )
+        control_cfg = ControlConfig(
+            longitudinal_mode=LongitudinalActionType.SPEED,
+            steering_mode=SteerActionType.STEERING_ANGLE,
+        )
+        observation_cfg = ObservationConfig(type=ObservationType.DIRECT)
+        reset_cfg = ResetConfig(strategy=ResetStrategy.MAP_RANDOM_STATIC)
+
+        env_config = EnvConfig(
+            map_name=loaded_map,
+            map_scale=scale,
+            params=self.vehicle_params,
+            num_agents=num_agents,
+            control_config=control_cfg,
+            simulation_config=simulation_cfg,
+            observation_config=observation_cfg,
+            reset_config=reset_cfg,
+            lidar_config=lidar_cfg,
+            render_enabled=False,
+        )
+        self.env = F110Env(config=env_config, render_mode=None)
 
         sx = self.get_parameter('sx').value
         sy = self.get_parameter('sy').value
@@ -135,14 +263,14 @@ class GymBridge(Node):
         self.ego_collision = False
         ego_scan_topic = self.get_parameter('ego_scan_topic').value
         ego_drive_topic = self.get_parameter('ego_drive_topic').value
-        scan_fov = self.get_parameter('scan_fov').value
-        scan_beams = self.get_parameter('scan_beams').value
-        self.angle_min = -scan_fov / 2.
-        self.angle_max = scan_fov / 2.
-        self.angle_inc = scan_fov / scan_beams
+        self.angle_min = self.lidar_cfg.angle_min
+        self.angle_max = self.lidar_cfg.angle_max
+        self.angle_inc = self.lidar_cfg.angle_increment
+        self.scan_range_min = self.lidar_cfg.range_min
+        self.scan_range_max = self.lidar_cfg.range_max
         self.ego_namespace = self.get_parameter('ego_namespace').value
         ego_odom_topic = self.ego_namespace + '/' + self.get_parameter('ego_odom_topic').value
-        self.scan_distance_to_base_link = self.get_parameter('scan_distance_to_base_link').value
+        self.scan_distance_to_base_link = self.lidar_cfg.base_link_to_lidar_tf[0]
         
         if num_agents == 2:
             self.has_opp = True
@@ -155,9 +283,8 @@ class GymBridge(Node):
             self.opp_requested_speed = 0.0
             self.opp_steer = 0.0
             self.opp_collision = False
-            self.obs, _ = self.env.reset(options={"poses": np.array([[sx, sy, stheta], [sx1, sy1, stheta1]])})
-            self.ego_scan = list(self.obs['scans'][0])
-            self.opp_scan = list(self.obs['scans'][1])
+            self.env.reset(options={"poses": np.array([[sx, sy, stheta], [sx1, sy1, stheta1]])})
+            self._update_sim_state()
 
             opp_scan_topic = self.get_parameter('opp_scan_topic').value
             opp_odom_topic = self.opp_namespace + '/' + self.get_parameter('opp_odom_topic').value
@@ -167,8 +294,8 @@ class GymBridge(Node):
             opp_ego_odom_topic = self.opp_namespace + '/' + self.get_parameter('opp_ego_odom_topic').value
         else:
             self.has_opp = False
-            self.obs, _ = self.env.reset(options={"poses": np.array([[sx, sy, stheta]])})
-            self.ego_scan = list(self.obs['scans'][0])
+            self.env.reset(options={"poses": np.array([[sx, sy, stheta]])})
+            self._update_sim_state()
 
         if not self.get_parameter('async_mode').value:
             self.get_logger().info('Running in synchronous mode. Simulation will step only on new /drive messages.')
@@ -280,10 +407,11 @@ class GymBridge(Node):
         rqw = pose_msg.pose.pose.orientation.w
         rtheta = Rotation.from_quat([rqx, rqy, rqz, rqw]).as_euler('xyz')[2]
         if self.has_opp:
-            opp_pose = [self.obs['poses_x'][1], self.obs['poses_y'][1], self.obs['poses_theta'][1]]
-            self.obs, _ = self.env.reset(options={"poses": np.array([[rx, ry, rtheta], opp_pose])})
+            opp_pose = [self.opp_pose[0], self.opp_pose[1], self.opp_pose[2]]
+            self.env.reset(options={"poses": np.array([[rx, ry, rtheta], opp_pose])})
         else:
-            self.obs, _ = self.env.reset(options={"poses": np.array([[rx, ry, rtheta]])})
+            self.env.reset(options={"poses": np.array([[rx, ry, rtheta]])})
+        self._update_sim_state()
 
     def opp_reset_callback(self, pose_msg):
         if self.sim_paused:
@@ -297,7 +425,8 @@ class GymBridge(Node):
             rqz = pose_msg.pose.orientation.z
             rqw = pose_msg.pose.orientation.w
             rtheta = Rotation.from_quat([rqx, rqy, rqz, rqw]).as_euler('xyz')[2]
-            self.obs, _ = self.env.reset(options={"poses": np.array([(self.ego_pose), [rx, ry, rtheta]])})
+            self.env.reset(options={"poses": np.array([self.ego_pose, [rx, ry, rtheta]])})
+            self._update_sim_state()
 
     def teleop_callback(self, twist_msg):
         if self.sim_paused:
@@ -317,14 +446,24 @@ class GymBridge(Node):
             return  # Skip stepping the sim if paused
         
         if not self.has_opp:
-            self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
+            _, _, self.done, _, _ = self.env.step(
+                np.array([[self.ego_steer, self.ego_requested_speed]])
+            )
         else:
-            self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed]]))
+            _, _, self.done, _, _ = self.env.step(
+                np.array(
+                    [
+                        [self.ego_steer, self.ego_requested_speed],
+                        [self.opp_steer, self.opp_requested_speed],
+                    ]
+                )
+            )
         self._update_sim_state()
         if self.get_parameter('use_sim_time_bridge').value:
             clock_msg = Clock()
-            clock_msg.clock.sec = int(self.env.unwrapped.current_time // 1.0)
-            clock_msg.clock.nanosec = int((self.env.unwrapped.current_time % 1.0) * 1e9)
+            sim_time = self.env.unwrapped.sim_time
+            clock_msg.clock.sec = int(sim_time // 1.0)
+            clock_msg.clock.nanosec = int((sim_time % 1.0) * 1e9)
             self.clock_pub.publish(clock_msg)
 
     def timer_callback(self):
@@ -334,8 +473,9 @@ class GymBridge(Node):
         ts = self.get_clock().now().to_msg()
         if self.get_parameter('use_sim_time_bridge').value:
             # Ensure sim-time stamps the messages   
-            ts.sec = int(self.env.unwrapped.current_time // 1.0)
-            ts.nanosec = int((self.env.unwrapped.current_time % 1.0) * 1e9)
+            sim_time = self.env.unwrapped.sim_time
+            ts.sec = int(sim_time // 1.0)
+            ts.nanosec = int((sim_time % 1.0) * 1e9)
 
         # pub scans
         scan = LaserScan()
@@ -344,8 +484,8 @@ class GymBridge(Node):
         scan.angle_min = self.angle_min
         scan.angle_max = self.angle_max
         scan.angle_increment = self.angle_inc
-        scan.range_min = 0.
-        scan.range_max = 30.
+        scan.range_min = self.scan_range_min
+        scan.range_max = self.scan_range_max
         # convert each element to float from numpy.float32
         self.ego_scan = [float(x) for x in self.ego_scan]
         scan.ranges = self.ego_scan
@@ -358,8 +498,8 @@ class GymBridge(Node):
             opp_scan.angle_min = self.angle_min
             opp_scan.angle_max = self.angle_max
             opp_scan.angle_increment = self.angle_inc
-            opp_scan.range_min = 0.
-            opp_scan.range_max = 30.
+            opp_scan.range_min = self.scan_range_min
+            opp_scan.range_max = self.scan_range_max
             self.opp_scan = [float(x) for x in self.opp_scan]
             opp_scan.ranges = self.opp_scan
             self.opp_scan_pub.publish(opp_scan)
@@ -371,22 +511,31 @@ class GymBridge(Node):
         self._publish_wheel_transforms(ts)
 
     def _update_sim_state(self):
-        self.ego_scan = list(self.obs['scans'][0])
-        if self.has_opp:
-            self.opp_scan = list(self.obs['scans'][1])
-            self.opp_pose[0]  = float(self.obs['poses_x'][1])
-            self.opp_pose[1]  = float(self.obs['poses_y'][1])
-            self.opp_pose[2]  = float(self.obs['poses_theta'][1])
-            self.opp_speed[0] = float(self.obs['linear_vels_x'][1])
-            self.opp_speed[1] = float(self.obs['linear_vels_y'][1])
-            self.opp_speed[2] = float(self.obs['ang_vels_z'][1])
+        sim_state = self.env.unwrapped.sim.state
+        scans = sim_state.scans
+        poses = sim_state.poses
+        std_state = sim_state.standard_state
 
-        self.ego_pose[0] =  float(self.obs['poses_x'][0])
-        self.ego_pose[1] =  float(self.obs['poses_y'][0])
-        self.ego_pose[2] =  float(self.obs['poses_theta'][0])
-        self.ego_speed[0] = float(self.obs['linear_vels_x'][0])
-        self.ego_speed[1] = float(self.obs['linear_vels_y'][0])
-        self.ego_speed[2] = float(self.obs['ang_vels_z'][0])
+        self.ego_scan = list(scans[0])
+        self.ego_pose[0] = float(poses[0, 0])
+        self.ego_pose[1] = float(poses[0, 1])
+        self.ego_pose[2] = float(poses[0, 2])
+        ego_speed = float(std_state[0, 3])
+        ego_beta = float(std_state[0, 6])
+        self.ego_speed[0] = float(ego_speed * np.cos(ego_beta))
+        self.ego_speed[1] = float(ego_speed * np.sin(ego_beta))
+        self.ego_speed[2] = float(std_state[0, 5])
+
+        if self.has_opp:
+            self.opp_scan = list(scans[1])
+            self.opp_pose[0] = float(poses[1, 0])
+            self.opp_pose[1] = float(poses[1, 1])
+            self.opp_pose[2] = float(poses[1, 2])
+            opp_speed = float(std_state[1, 3])
+            opp_beta = float(std_state[1, 6])
+            self.opp_speed[0] = float(opp_speed * np.cos(opp_beta))
+            self.opp_speed[1] = float(opp_speed * np.sin(opp_beta))
+            self.opp_speed[2] = float(std_state[1, 5])
 
         
 
