@@ -41,7 +41,6 @@ from ament_index_python.packages import get_package_share_directory
 
 import numpy as np
 from PIL import Image
-from PIL.Image import Transpose
 from scipy.spatial.transform import Rotation
 
 from f1tenth_gym.envs import F110Env
@@ -100,7 +99,8 @@ def _load_track_from_yaml(map_yaml_path: pathlib.Path, scale: float) -> tuple[Tr
     )
 
     image_path = map_yaml_path.parent / track_spec.image
-    image = Image.open(image_path).transpose(Transpose.FLIP_TOP_BOTTOM)
+    flip_op = getattr(Image, "Transpose", Image).FLIP_TOP_BOTTOM
+    image = Image.open(image_path).transpose(flip_op)
     occupancy_map = np.array(image).astype(np.float32)
     occupancy_map[occupancy_map <= 128] = 0.0
     occupancy_map[occupancy_map > 128] = 255.0

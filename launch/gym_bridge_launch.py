@@ -25,8 +25,10 @@ import pathlib
 import yaml
 
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, LogInfo
+from launch.conditions import IfCondition
+from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
-from launch.substitutions import Command
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -77,13 +79,28 @@ def generate_launch_description():
             'use_sim_time_bridge': use_sim_time, # Whether to internally use and publish sim time
             }], 
     )
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz',
-        arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge.rviz')],
-        parameters=[{'use_sim_time': use_sim_time}],
+    foxglove_host = LaunchConfiguration('foxglove_host')
+    foxglove_port = LaunchConfiguration('foxglove_port')
+    foxglove_app_url = LaunchConfiguration('foxglove_app_url')
+    open_foxglove = LaunchConfiguration('open_foxglove')
+    foxglove_ws_url_parts = ['ws://', foxglove_host, ':', foxglove_port]
+    foxglove_layout = LaunchConfiguration('foxglove_layout')
+
+    foxglove_bridge_node = Node(
+        package='foxglove_bridge',
+        executable='foxglove_bridge',
+        name='foxglove_bridge',
+        parameters=[{'port': foxglove_port}],
+        output='screen',
     )
+    foxglove_open = ExecuteProcess(
+        cmd=['xdg-open', foxglove_app_url],
+        condition=IfCondition(open_foxglove),
+        output='screen',
+    )
+    foxglove_log = LogInfo(msg=['\033[34mFoxglove app: ', foxglove_app_url, '\033[0m'])
+    foxglove_ws_log = LogInfo(msg=['\033[34mFoxglove WebSocket: '] + foxglove_ws_url_parts + ['\033[0m'])
+    foxglove_layout_log = LogInfo(msg=['\033[34mFoxglove layout: ', foxglove_layout, '\033[0m'])
 
     # Create custom yaml file for map server by copying the original yaml file and scaling the resolution.
     map_path = config_dict['bridge']['ros__parameters']['map_path']
@@ -186,12 +203,51 @@ def generate_launch_description():
     )
 
     # finalize
-    ld.add_action(rviz_node)
+    ld.add_action(
+        DeclareLaunchArgument(
+            'foxglove_host',
+            default_value='localhost',
+            description='Host for foxglove_bridge websocket server.',
+        )
+    )
+    ld.add_action(
+        DeclareLaunchArgument(
+            'foxglove_port',
+            default_value='8765',
+            description='Port for foxglove_bridge websocket server.',
+        )
+    )
+    ld.add_action(
+        DeclareLaunchArgument(
+            'foxglove_app_url',
+            default_value='https://app.foxglove.dev',
+            description='Foxglove app URL to open in a browser.',
+        )
+    )
+    ld.add_action(
+        DeclareLaunchArgument(
+            'foxglove_layout',
+            default_value=os.path.join(package_share, 'launch', 'gym_bridge_foxglove.json'),
+            description='Path to Foxglove layout JSON.',
+        )
+    )
+    ld.add_action(
+        DeclareLaunchArgument(
+            'open_foxglove',
+            default_value='true',
+            description='Whether to open Foxglove in a browser.',
+        )
+    )
+    ld.add_action(foxglove_bridge_node)
+    ld.add_action(foxglove_open)
     ld.add_action(bridge_node)
     ld.add_action(nav_lifecycle_node)
     ld.add_action(map_server_node)
     ld.add_action(ego_robot_publisher)
     if has_opp:
         ld.add_action(opp_robot_publisher)
+    ld.add_action(foxglove_log)
+    ld.add_action(foxglove_ws_log)
+    ld.add_action(foxglove_layout_log)
 
     return ld
