@@ -18,10 +18,13 @@ Setup a native Ubuntu 22.04 either on your own machine (using dual boot or main 
 - **ROS 2** Follow the instructions [here](https://docs.ros.org/en/humble/Installation.html) to install ROS 2 Humble.
 - **F1TENTH Gym**
   ```bash
-  git clone https://github.com/f1tenth/f1tenth_gym
-  cd f1tenth_gym && git checkout dev-dynamics
-  pip3 install -e .
+  cd $HOME/sim_ws/src/f1tenth_gym_ros/f1tenth_gym
+  python3 -m venv --system-site-packages .venv
+  source .venv/bin/activate
+  pip install -U pip
+  pip install -e .
   ```
+  If you already manage Python environments, you can skip the venv and just run `pip install -e f1tenth_gym` from the workspace root.
 
 **Installing the simulation:**
 - Create a workspace: ```cd $HOME && mkdir -p sim_ws/src```
@@ -30,12 +33,8 @@ Setup a native Ubuntu 22.04 either on your own machine (using dual boot or main 
   cd $HOME/sim_ws/src
   git clone https://github.com/f1tenth/f1tenth_gym_ros
   ```
-- Checkout into the latest dev-dynamics branch
-  ```
-  cd f1tenth_gym_ros && git checkout dev-dynamics
-  ```
-- Update correct parameter for path to map file:
-  Go to `sim.yaml` [https://github.com/f1tenth/f1tenth_gym_ros/blob/main/config/sim.yaml](https://github.com/f1tenth/f1tenth_gym_ros/blob/main/config/sim.yaml) in your cloned repo, change the `map_path` parameter to point to the correct location. It should be `'<your_home_dir>/sim_ws/src/f1tenth_gym_ros/maps/levine'`
+- Update the map parameter if needed:
+  `map_path` can be a package-relative path like `maps/levine` (default) or a built-in gym track name like `Spielberg`.
 - Install dependencies with rosdep:
   ```bash
   source /opt/ros/humble/setup.bash
@@ -44,7 +43,7 @@ Setup a native Ubuntu 22.04 either on your own machine (using dual boot or main 
   ```
 - Build the workspace: ```cd $HOME/sim_ws && colcon build```
 
-Once you're done and everything is installed, skip to the [launching the simulation section](https://github.com/f1tenth/f1tenth_gym_ros/edit/dev-dynamics/README.md#launching-the-simulation).
+Once you're done and everything is installed, skip to the launching the simulation section below.
 ## Docker ##
 **AVOID USING DOCKER IF YOU HAVE NEVER USED IT BEFORE.**
 
@@ -105,7 +104,7 @@ You can then run another node by creating another bash session in `tmux`.
 # Configuring the simulation
 - The configuration file for the simulation is at `f1tenth_gym_ros/config/sim.yaml`.
 - Topic names and namespaces can be configured but is recommended to leave uncahnged.
-- The map can be changed via the `map_path` parameter. You'll have to use the full path to the map file in the container. The map follows the ROS convention. It is assumed that the image file and the `yaml` file for the map are in the same directory with the same name. See the note below about mounting a volume to see where to put your map file.
+- The map can be changed via the `map_path` parameter. It can be a package-relative path like `maps/levine` or a built-in gym track name like `Spielberg`. The map follows the ROS convention; the image file and the `yaml` file should live together.
 - The `num_agent` parameter can be changed to either 1 or 2 for single or two agent racing.
 - The ego and opponent starting pose can also be changed via parameters, these are in the global map coordinate frame.
 
@@ -170,11 +169,11 @@ There are multiple ways to launch your own agent to control the vehicles.
 
 
 ## FAQ & Debugging
-### I have python 3.8 / Ubuntu 20.04
-DO NOT CHECKOUT TO dev-dynamics. In this case, you have an outdated python version and you are not able to install the newest version of the gym. As such, skip the "git checkout" steps to remain on the main branch as that is compatible with your setup.
+### I have Python < 3.9 / Ubuntu 20.04
+The current `f1tenth_gym` requires Python 3.9+. Use Ubuntu 22.04 with ROS 2 Humble or update your Python environment to 3.9+.
 
 ### This package is managed externally, PEP 668
-You python version is very new and now enforces PEP 668 which does not allow pip installs without a virtual environment. To overcome this the easy way, use ```PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install -e .```. You can do this safely as the packages installed should not break your system. 
+If your system enforces PEP 668, install `f1tenth_gym` inside a virtual environment (use `--system-site-packages` for ROS). Alternatively, use `PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install -e f1tenth_gym`.
 
 ### Pyqt6 6.8 cached, fails to install
 In rare cases, you might have a newer cached version of pyqt6 which breaks the .toml install. To resolve this, first install pyqt6 first using ```pip3 install pyqt6==6.7.1``` and then install the f1tenth_gym using ```pip3 install -e .```.
