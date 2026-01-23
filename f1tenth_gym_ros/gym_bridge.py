@@ -384,7 +384,7 @@ class GymBridge(Node):
             return  # Skip stepping the sim if paused
 
         self.ego_requested_speed = drive_msg.drive.speed
-        self.ego_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
+        self.ego_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params.s_min, self.vehicle_params.s_max)
         
         if not self.get_parameter('async_mode').value:
             # step the sim immediately and publish odom and scan
@@ -396,7 +396,7 @@ class GymBridge(Node):
             return  # Skip stepping the sim if paused
 
         self.opp_requested_speed = drive_msg.drive.speed
-        self.opp_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
+        self.opp_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params.s_min, self.vehicle_params.s_max)
         
         if not self.get_parameter('async_mode').value:
             # step the sim immediately and publish odom and scan
