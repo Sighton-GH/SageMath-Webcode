@@ -5,47 +5,52 @@ This is a containerized ROS communication bridge for the F1TENTH gym environment
 
 **Supported Systems:**
 
-- Ubuntu (tested on 22.04) native with ROS 2 Humble
-- Ubuntu (tested on 20.04) with an NVIDIA gpu and nvidia-docker2 support
-- Windows 10/11, macOS, and Ubuntu without an NVIDIA gpu (using noVNC)
+- Ubuntu native (tested on 22.04, and 24.04) with ROS 2.
+- Windows 10/11, macOS, and Ubuntu with an NVIDIA gpu and nvidia-docker2 support.
+- Windows 10/11, macOS, and Ubuntu without an NVIDIA gpu (using noVNC).
 
 This installation guide will be split into instruction for installing the ROS 2 package natively, and for systems with or without an NVIDIA gpu in Docker containers.
 
 ## Native on Ubuntu 22.04 (Recommended)
-Setup a native Ubuntu 22.04 either on your own machine (using dual boot or main OS) or using a virtualmachine using your favorite virtualization software ([VMWare](https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion) recommended).
+Setup a native Ubuntu 22.04 either on your own machine (using dual boot or main OS) or using a virtual machine with your favorite virtualization software ([VMWare](https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion) recommended).
 
-**Install the following dependencies:**
-- **ROS 2** Follow the instructions [here](https://docs.ros.org/en/humble/Installation.html) to install ROS 2 Humble.
-- **F1TENTH Gym**
-  ```bash
-  cd $HOME/sim_ws/src/f1tenth_gym_ros/f1tenth_gym
-  python3 -m venv --system-site-packages .venv
-  source .venv/bin/activate
-  pip install -U pip
-  pip install -e .
-  ```
-  If you already manage Python environments, you can skip the venv and just run `pip install -e f1tenth_gym` from the workspace root.
+### Step-by-step install (fresh workspace)
+1. **Install ROS 2 Humble.** Follow the instructions [here](https://docs.ros.org/en/humble/Installation.html).
+2. **Create the workspace and a venv inside it:**
+   ```bash
+   mkdir -p $HOME/sim_ws/src
+   python3 -m venv --system-site-packages $HOME/sim_ws/.venv
+   source $HOME/sim_ws/.venv/bin/activate
+   python3 -m pip install -U pip
+   ```
+3. **Clone `f1tenth_gym_ros` into the workspace (dev-humble):**
+   ```bash
+   cd $HOME/sim_ws/src
+   git clone -b dev-humble https://github.com/f1tenth/f1tenth_gym_ros.git
+   ```
+4. **Clone `f1tenth_gym` inside `f1tenth_gym_ros` (dev-humble):**
+   ```bash
+   cd $HOME/sim_ws/src/f1tenth_gym_ros
+   git clone -b dev-humble https://github.com/f1tenth/f1tenth_gym.git
+   ```
+   If the `f1tenth_gym` directory already exists (some clones include it), skip the clone.
+5. **Install `f1tenth_gym` (follow its README):**
+   - With the venv already active, the minimal pip install is:
+     ```bash
+     cd $HOME/sim_ws/src/f1tenth_gym_ros/f1tenth_gym
+     pip install -e .
+     ```
+6. **Install ROS dependencies and build the workspace:**
+   ```bash
+   source /opt/ros/humble/setup.bash
+   cd $HOME/sim_ws
+   rosdep install -i --from-path src --rosdistro humble -y
+   colcon build
+   ```
 
-**Installing the simulation:**
-- Create a workspace: ```cd $HOME && mkdir -p sim_ws/src```
-- Clone the repo into the workspace:
-  ```bash
-  cd $HOME/sim_ws/src
-  git clone https://github.com/f1tenth/f1tenth_gym_ros
-  ```
-- Update the map parameter if needed:
-  `map_path` can be a package-relative path like `maps/levine` (default) or a built-in gym track name like `Spielberg`.
-- Install dependencies with rosdep:
-  ```bash
-  source /opt/ros/humble/setup.bash
-  cd ..
-  rosdep install -i --from-path src --rosdistro humble -y
-  ```
-- Build the workspace: ```cd $HOME/sim_ws && colcon build```
-
-Once you're done and everything is installed, skip to the launching the simulation section below.
+Once you're done and everything is installed, skip to the [Launching the Simulation](#launching-the-simulation) section below.
 ## Docker ##
-**AVOID USING DOCKER IF YOU HAVE NEVER USED IT BEFORE.**
+(Alternative install, skip if you have already used the native install above)
 
 ### With an NVIDIA gpu:
 **Install the following dependencies:**
@@ -91,21 +96,22 @@ docker exec -it f1tenth_gym_ros-sim-1 /bin/bash
 # Launching the Simulation
 
 1. `tmux` is included in the contianer, so you can create multiple bash sessions in the same terminal.
-2. To launch the simulation, make sure you source both the ROS2 setup script and the local workspace setup script. Run the following in the bash session from the container:
+2. To launch the simulation, make sure you source the venv, the ROS2 setup script, and the local workspace setup script. Run the following in the bash session from the container:
 ```bash
+source $HOME/sim_ws/.venv/bin/activate
 source /opt/ros/humble/setup.bash
 source install/local_setup.bash
 ros2 launch f1tenth_gym_ros gym_bridge_launch.py
 ```
-A rviz window should pop up showing the simulation either on your host system or in the browser window depending on the display forwarding you chose.
+A browser window should pop up redirecting you to [https://app.foxglove.dev](https://app.foxglove.dev). You will then need to connect to click on `Open Connection`, then chose `Foxglove Websocket` and paste in the websocket's address printed in the terminal in blue i.e `[INFO] [launch.user]: Foxglove WebSocket: ws://localhost:8765`. If you can see the topics on the left, then the connection is complete. To visualize the simulation, you will need to change layout by importing the layout file `gym_bridge_foxglove.json` in the launch folder of this package. Foxglove is the recommended setup, but if you prefer RViz (old Gym setup), you can also use rviz to visualize the sim, with `gym_bridge.rviz` available in the launch folder of this package too.
 
-You can then run another node by creating another bash session in `tmux`.
+You can then run another node by creating another bash session in `tmux` or a separate terminal.
 
 # Configuring the simulation
 - The configuration file for the simulation is at `f1tenth_gym_ros/config/sim.yaml`.
 - Topic names and namespaces can be configured but is recommended to leave uncahnged.
 - The map can be changed via the `map_path` parameter. It can be a package-relative path like `maps/levine` or a built-in gym track name like `Spielberg`. The map follows the ROS convention; the image file and the `yaml` file should live together.
-- The `num_agent` parameter can be changed to either 1 or 2 for single or two agent racing.
+- The `num_agent` parameter can be changed to either 1 or 2 for single or two agent racing. Multi-agent racing (>2) is planned, but not yet supported by the gym_ros.
 - The ego and opponent starting pose can also be changed via parameters, these are in the global map coordinate frame.
 
 The entire directory of the repo is mounted to a workspace `/sim_ws/src` as a package. All changes made in the repo on the host system will also reflect in the container. After changing the configuration, run `colcon build` again in the container workspace to make sure the changes are reflected.
@@ -140,9 +146,7 @@ In **single** agent:
 
 `/drive`: The ego agent's drive command via `AckermannDriveStamped` messages
 
-`/initalpose`: This is the topic for resetting the ego's pose via RViz's 2D Pose Estimate tool. Do **NOT** publish directly to this topic unless you know what you're doing.
-
-TODO: kb teleop topics
+`/initalpose`: This is the topic for resetting the ego's pose via RViz's Foxglove's 2D Pose Estimate tool.
 
 In **two** agents:
 
@@ -150,11 +154,11 @@ In addition to all topics in the single agent scenario, these topics are also av
 
 `/opp_drive`: The opponent agent's drive command via `AckermannDriveStamped` messages. Note that you'll need to publish to **both** the ego's drive topic and the opponent's drive topic for the cars to move when using 2 agents.
 
-`/goal_pose`: This is the topic for resetting the opponent agent's pose via RViz's 2D Goal Pose tool. Do **NOT** publish directly to this topic unless you know what you're doing.
+`/goal_pose`: This is the topic for resetting the opponent agent's pose via RViz's or Foxglove's 2D Goal Pose tool.
 
 # Keyboard Teleop
 
-The keyboard teleop node from `teleop_twist_keyboard` is also installed as part of the simulation's dependency. To enable keyboard teleop, set `kb_teleop` to `True` in `sim.yaml`. After launching the simulation, in another terminal, run:
+The keyboard teleop node from `teleop_twist_keyboard` is also installed as part of the simulation's dependency. To enable keyboard teleop, set `kb_teleop` to `True` in `sim.yaml`. After launching the simulation, in another terminal, with ROS sourced, run:
 ```bash
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
@@ -169,11 +173,11 @@ There are multiple ways to launch your own agent to control the vehicles.
 
 
 ## FAQ & Debugging
-### I have Python < 3.9 / Ubuntu 20.04
+### I have Python < 3.9
 The current `f1tenth_gym` requires Python 3.9+. Use Ubuntu 22.04 with ROS 2 Humble or update your Python environment to 3.9+.
 
 ### This package is managed externally, PEP 668
-If your system enforces PEP 668, install `f1tenth_gym` inside a virtual environment (use `--system-site-packages` for ROS). Alternatively, use `PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install -e f1tenth_gym`.
+You are trying to install the package using the system python. This is outdated and not recommended as per PEP 668. Please ensure you install `f1tenth_gym` inside a virtual environment as instructed with `.venv` above.
 
 ### Pyqt6 6.8 cached, fails to install
 In rare cases, you might have a newer cached version of pyqt6 which breaks the .toml install. To resolve this, first install pyqt6 first using ```pip3 install pyqt6==6.7.1``` and then install the f1tenth_gym using ```pip3 install -e .```.
