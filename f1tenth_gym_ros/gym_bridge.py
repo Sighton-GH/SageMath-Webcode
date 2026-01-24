@@ -146,7 +146,8 @@ class GymBridge(Node):
         self.declare_parameter('opp_drive_topic', 'opp_drive')
         self.declare_parameter('lidar_enabled', True)
         self.declare_parameter('lidar_base_link_to_lidar_tf', [0.275, 0.0, 0.0])
-        self.declare_parameter('scan_beams', 1080)
+        self.declare_parameter('lidar_noise_std', 0.01)
+        self.declare_parameter('scan_num_beams', 1080)
         self.declare_parameter('scan_range_min', 0.0)
         self.declare_parameter('scan_range_max', 30.0)
         self.declare_parameter('scan_angle_min', -135.0)
@@ -213,12 +214,12 @@ class GymBridge(Node):
             )
             
         lidar_enabled = self.get_parameter('lidar_enabled').value
-        lidar_num_beams = self.get_parameter('lidar_num_beams').value
-        if not isinstance(lidar_num_beams, int):
-            if isinstance(lidar_num_beams, float) and lidar_num_beams.is_integer():
-                lidar_num_beams = int(lidar_num_beams)
+        scan_num_beams = self.get_parameter('scan_num_beams').value
+        if not isinstance(scan_num_beams, int):
+            if isinstance(scan_num_beams, float) and scan_num_beams.is_integer():
+                scan_num_beams = int(scan_num_beams)
             else:
-                raise ValueError('lidar_num_beams must be an integer.')
+                raise ValueError('scan_num_beams must be an integer.')
         lidar_noise_std = self.get_parameter('lidar_noise_std').value
         lidar_base_link_to_lidar_tf = self.get_parameter(
             'lidar_base_link_to_lidar_tf'
@@ -232,7 +233,7 @@ class GymBridge(Node):
         scan_angle_max = self.get_parameter('scan_angle_max').value
         lidar_cfg = LiDARConfig(
             enabled=lidar_enabled,
-            num_beams=lidar_num_beams,
+            num_beams=scan_num_beams,
             range_min=scan_range_min,
             range_max=scan_range_max,
             angle_min=np.deg2rad(scan_angle_min),

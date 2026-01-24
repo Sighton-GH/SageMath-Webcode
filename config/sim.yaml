@@ -34,12 +34,13 @@ bridge:
     opp_ego_odom_topic: 'opp_odom'
     opp_drive_topic: 'opp_drive'
 
-    # transform related
-    scan_enabled: True
+    # LiDAR related parameters
+    lidar_enabled: True
     lidar_base_link_to_lidar_tf: [0.275, 0.0, 0.0] # x, y, yaw from base_link to lidar
+    lidar_noise_std: 0.01 # LiDAR accuracy - modelled as zero-mean Gaussian noise with this standard deviation (in meters)
     
     # laserscan parameters (default values are SICK TIM571 configuration (270° FOV))
-    scan_beams: 819
+    scan_num_beams: 819 # Number of laser beams in LiDAR scan (resolution = (scan_angle_max - scan_angle_min) / scan_num_beams)
     scan_range_min: 0.05 # 5cm
     scan_range_max: 25.0 # 25m
     # Angles have to be in degrees
@@ -47,7 +48,7 @@ bridge:
     scan_angle_max: 135.0 # 135°
 
     # map parameters
-    map_path: 'maps/blank'
+    map_path: 'maps/levine'
     map_img_ext: '.png'
 
     # car parameters and scale
