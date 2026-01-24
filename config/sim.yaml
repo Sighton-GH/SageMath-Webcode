@@ -34,12 +34,15 @@ bridge:
     opp_ego_odom_topic: 'opp_odom'
     opp_drive_topic: 'opp_drive'
 
-    # transform related
-    scan_distance_to_base_link: 0.275
-    
-    # laserscan parameters
-    scan_fov: 4.7
-    scan_beams: 1080
+    # lidar parameters (SICK TIM 571, 270 deg FOV)
+    lidar_enabled: true
+    lidar_num_beams: 819
+    lidar_angle_min: -2.356194490192345
+    lidar_angle_max: 2.356194490192345
+    lidar_range_min: 0.05
+    lidar_range_max: 25.0
+    lidar_noise_std: 0.01
+    lidar_base_link_to_lidar_tf: [0.275, 0.0, 0.0]
 
     # map parameters
     map_path: 'maps/levine'

@@ -144,9 +144,14 @@ class GymBridge(Node):
         self.declare_parameter('opp_ego_odom_topic', 'opp_odom')
         self.declare_parameter('opp_scan_topic', 'opp_scan')
         self.declare_parameter('opp_drive_topic', 'opp_drive')
-        self.declare_parameter('scan_distance_to_base_link', 0.275)
-        self.declare_parameter('scan_fov', 4.7)
-        self.declare_parameter('scan_beams', 1080)
+        self.declare_parameter('lidar_enabled', True)
+        self.declare_parameter('lidar_num_beams', 819)
+        self.declare_parameter('lidar_angle_min', -2.356194490192345)
+        self.declare_parameter('lidar_angle_max', 2.356194490192345)
+        self.declare_parameter('lidar_range_min', 0.05)
+        self.declare_parameter('lidar_range_max', 25.0)
+        self.declare_parameter('lidar_noise_std', 0.01)
+        self.declare_parameter('lidar_base_link_to_lidar_tf', [0.275, 0.0, 0.0])
         self.declare_parameter('map_path', 'levine')
         self.declare_parameter('map_img_ext', '.png')
         self.declare_parameter('num_agent', 1)
@@ -208,15 +213,37 @@ class GymBridge(Node):
                 'Map has no centerline/raceline; disabling frenet frame and lap counting.'
             )
 
-        scan_fov = self.get_parameter('scan_fov').value
-        scan_beams = self.get_parameter('scan_beams').value
-        scan_distance = self.get_parameter('scan_distance_to_base_link').value
+        lidar_enabled = self.get_parameter('lidar_enabled').value
+        lidar_num_beams = self.get_parameter('lidar_num_beams').value
+        if not isinstance(lidar_num_beams, int):
+            if isinstance(lidar_num_beams, float) and lidar_num_beams.is_integer():
+                lidar_num_beams = int(lidar_num_beams)
+            else:
+                raise ValueError('lidar_num_beams must be an integer.')
+        lidar_angle_min = self.get_parameter('lidar_angle_min').value
+        lidar_angle_max = self.get_parameter('lidar_angle_max').value
+        lidar_range_min = self.get_parameter('lidar_range_min').value
+        lidar_range_max = self.get_parameter('lidar_range_max').value
+        lidar_noise_std = self.get_parameter('lidar_noise_std').value
+        lidar_base_link_to_lidar_tf = self.get_parameter(
+            'lidar_base_link_to_lidar_tf'
+        ).value
+        if len(lidar_base_link_to_lidar_tf) != 3:
+            raise ValueError('lidar_base_link_to_lidar_tf must be [x, y, yaw].')
+        lidar_base_link_to_lidar_tf = tuple(
+            float(val) for val in lidar_base_link_to_lidar_tf
+        )
+        lidar_fov = lidar_angle_max - lidar_angle_min
         lidar_cfg = LiDARConfig(
-            num_beams=scan_beams,
-            field_of_view=scan_fov,
-            range_min=0.0,
-            range_max=30.0,
-            base_link_to_lidar_tf=(scan_distance, 0.0, 0.0),
+            enabled=lidar_enabled,
+            num_beams=lidar_num_beams,
+            field_of_view=lidar_fov,
+            angle_min=lidar_angle_min,
+            angle_max=lidar_angle_max,
+            range_min=lidar_range_min,
+            range_max=lidar_range_max,
+            noise_std=lidar_noise_std,
+            base_link_to_lidar_tf=lidar_base_link_to_lidar_tf,
         )
         self.lidar_cfg = lidar_cfg
 
@@ -270,7 +297,7 @@ class GymBridge(Node):
         self.scan_range_max = self.lidar_cfg.range_max
         self.ego_namespace = self.get_parameter('ego_namespace').value
         ego_odom_topic = self.ego_namespace + '/' + self.get_parameter('ego_odom_topic').value
-        self.scan_distance_to_base_link = self.lidar_cfg.base_link_to_lidar_tf[0]
+        self.scan_tf = self.lidar_cfg.base_link_to_lidar_tf
         
         if num_agents == 2:
             self.has_opp = True
@@ -642,10 +669,15 @@ class GymBridge(Node):
             self.br.sendTransform(opp_wheel_ts)
 
     def _publish_laser_transforms(self, ts):
+        scan_quat = Rotation.from_euler('xyz', [0.0, 0.0, self.scan_tf[2]]).as_quat()
         ego_scan_ts = TransformStamped()
-        ego_scan_ts.transform.translation.x = self.scan_distance_to_base_link
-        # ego_scan_ts.transform.translation.z = 0.04+0.1+0.025
-        ego_scan_ts.transform.rotation.w = 1.
+        ego_scan_ts.transform.translation.x = self.scan_tf[0]
+        ego_scan_ts.transform.translation.y = self.scan_tf[1]
+        ego_scan_ts.transform.translation.z = 0.0
+        ego_scan_ts.transform.rotation.x = scan_quat[0]
+        ego_scan_ts.transform.rotation.y = scan_quat[1]
+        ego_scan_ts.transform.rotation.z = scan_quat[2]
+        ego_scan_ts.transform.rotation.w = scan_quat[3]
         ego_scan_ts.header.stamp = ts
         ego_scan_ts.header.frame_id = self.ego_namespace + '/base_link'
         ego_scan_ts.child_frame_id = self.ego_namespace + '/laser'
@@ -653,8 +685,13 @@ class GymBridge(Node):
 
         if self.has_opp:
             opp_scan_ts = TransformStamped()
-            opp_scan_ts.transform.translation.x = self.scan_distance_to_base_link
-            opp_scan_ts.transform.rotation.w = 1.
+            opp_scan_ts.transform.translation.x = self.scan_tf[0]
+            opp_scan_ts.transform.translation.y = self.scan_tf[1]
+            opp_scan_ts.transform.translation.z = 0.0
+            opp_scan_ts.transform.rotation.x = scan_quat[0]
+            opp_scan_ts.transform.rotation.y = scan_quat[1]
+            opp_scan_ts.transform.rotation.z = scan_quat[2]
+            opp_scan_ts.transform.rotation.w = scan_quat[3]
             opp_scan_ts.header.stamp = ts
             opp_scan_ts.header.frame_id = self.opp_namespace + '/base_link'
             opp_scan_ts.child_frame_id = self.opp_namespace + '/laser'
