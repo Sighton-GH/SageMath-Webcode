@@ -34,25 +34,28 @@ bridge:
     opp_ego_odom_topic: 'opp_odom'
     opp_drive_topic: 'opp_drive'
 
-    # lidar parameters (SICK TIM 571, 270 deg FOV)
-    lidar_enabled: true
-    lidar_num_beams: 819
-    lidar_angle_min: -2.356194490192345
-    lidar_angle_max: 2.356194490192345
-    lidar_range_min: 0.05
-    lidar_range_max: 25.0
-    lidar_noise_std: 0.01
-    lidar_base_link_to_lidar_tf: [0.275, 0.0, 0.0]
+    # transform related
+    scan_enabled: True
+    lidar_base_link_to_lidar_tf: [0.275, 0.0, 0.0] # x, y, yaw from base_link to lidar
+    
+    # laserscan parameters (default values are SICK TIM571 configuration (270° FOV))
+    scan_beams: 819
+    scan_range_min: 0.05 # 5cm
+    scan_range_max: 25.0 # 25m
+    # Angles have to be in degrees
+    scan_angle_min: -135.0 # -135°
+    scan_angle_max: 135.0 # 135°
 
     # map parameters
-    map_path: 'maps/levine'
+    map_path: 'maps/blank'
     map_img_ext: '.png'
 
     # car parameters and scale
+    # Supported vehicle parameters are 'f1tenth', 'fullscale', and 'f1fifth'
     vehicle_params: 'f1tenth'
     scale: 1.0
 
-    # opponent parameters
+    # number of agents, currently only supports 1 or 2
     num_agent: 1
 
     # ego starting pose on map
@@ -69,7 +72,10 @@ bridge:
     kb_teleop: True
 
     # use simulation time
+    # When true, the bridge will publish the simulation time on the /clock topic
+    # and the simulation will run as fast as possible.
     use_sim_time: False
 
-    # if false, only steps sim on new /drive messages
+    # If false, only steps sim on new /drive messages.
+    # If true, the simulation will step using a timer callback.
     async_mode: True

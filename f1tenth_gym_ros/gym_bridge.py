@@ -145,13 +145,12 @@ class GymBridge(Node):
         self.declare_parameter('opp_scan_topic', 'opp_scan')
         self.declare_parameter('opp_drive_topic', 'opp_drive')
         self.declare_parameter('lidar_enabled', True)
-        self.declare_parameter('lidar_num_beams', 819)
-        self.declare_parameter('lidar_angle_min', -2.356194490192345)
-        self.declare_parameter('lidar_angle_max', 2.356194490192345)
-        self.declare_parameter('lidar_range_min', 0.05)
-        self.declare_parameter('lidar_range_max', 25.0)
-        self.declare_parameter('lidar_noise_std', 0.01)
         self.declare_parameter('lidar_base_link_to_lidar_tf', [0.275, 0.0, 0.0])
+        self.declare_parameter('scan_beams', 1080)
+        self.declare_parameter('scan_range_min', 0.0)
+        self.declare_parameter('scan_range_max', 30.0)
+        self.declare_parameter('scan_angle_min', -135.0)
+        self.declare_parameter('scan_angle_max', 135.0)
         self.declare_parameter('map_path', 'levine')
         self.declare_parameter('map_img_ext', '.png')
         self.declare_parameter('num_agent', 1)
@@ -212,7 +211,7 @@ class GymBridge(Node):
             self.get_logger().warning(
                 'Map has no centerline/raceline; disabling frenet frame and lap counting.'
             )
-
+            
         lidar_enabled = self.get_parameter('lidar_enabled').value
         lidar_num_beams = self.get_parameter('lidar_num_beams').value
         if not isinstance(lidar_num_beams, int):
@@ -220,28 +219,24 @@ class GymBridge(Node):
                 lidar_num_beams = int(lidar_num_beams)
             else:
                 raise ValueError('lidar_num_beams must be an integer.')
-        lidar_angle_min = self.get_parameter('lidar_angle_min').value
-        lidar_angle_max = self.get_parameter('lidar_angle_max').value
-        lidar_range_min = self.get_parameter('lidar_range_min').value
-        lidar_range_max = self.get_parameter('lidar_range_max').value
         lidar_noise_std = self.get_parameter('lidar_noise_std').value
         lidar_base_link_to_lidar_tf = self.get_parameter(
             'lidar_base_link_to_lidar_tf'
         ).value
         if len(lidar_base_link_to_lidar_tf) != 3:
             raise ValueError('lidar_base_link_to_lidar_tf must be [x, y, yaw].')
-        lidar_base_link_to_lidar_tf = tuple(
-            float(val) for val in lidar_base_link_to_lidar_tf
-        )
-        lidar_fov = lidar_angle_max - lidar_angle_min
+        lidar_base_link_to_lidar_tf = tuple(lidar_base_link_to_lidar_tf)
+        scan_range_min = self.get_parameter('scan_range_min').value
+        scan_range_max = self.get_parameter('scan_range_max').value
+        scan_angle_min = self.get_parameter('scan_angle_min').value
+        scan_angle_max = self.get_parameter('scan_angle_max').value
         lidar_cfg = LiDARConfig(
             enabled=lidar_enabled,
             num_beams=lidar_num_beams,
-            field_of_view=lidar_fov,
-            angle_min=lidar_angle_min,
-            angle_max=lidar_angle_max,
-            range_min=lidar_range_min,
-            range_max=lidar_range_max,
+            range_min=scan_range_min,
+            range_max=scan_range_max,
+            angle_min=np.deg2rad(scan_angle_min),
+            angle_max=np.deg2rad(scan_angle_max),
             noise_std=lidar_noise_std,
             base_link_to_lidar_tf=lidar_base_link_to_lidar_tf,
         )
@@ -403,7 +398,7 @@ class GymBridge(Node):
             return  # Skip stepping the sim if paused
 
         self.ego_requested_speed = drive_msg.drive.speed
-        self.ego_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
+        self.ego_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params.s_min, self.vehicle_params.s_max)
         
         if not self.get_parameter('async_mode').value:
             # step the sim immediately and publish odom and scan
@@ -415,7 +410,7 @@ class GymBridge(Node):
             return  # Skip stepping the sim if paused
 
         self.opp_requested_speed = drive_msg.drive.speed
-        self.opp_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
+        self.opp_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params.s_min, self.vehicle_params.s_max)
         
         if not self.get_parameter('async_mode').value:
             # step the sim immediately and publish odom and scan
