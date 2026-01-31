@@ -179,11 +179,20 @@ The current `f1tenth_gym` requires Python 3.9+. Use Ubuntu 22.04 with ROS 2 Humb
 ### This package is managed externally, PEP 668
 You are trying to install the package using the system python. This is outdated and not recommended as per PEP 668. Please ensure you install `f1tenth_gym` inside a virtual environment as instructed with `.venv` above.
 
-### Pyqt6 6.8 cached, fails to install
+### Pyqt6 6.10 cached, fails to install
 In rare cases, you might have a newer cached version of pyqt6 which breaks the .toml install. To resolve this, first install pyqt6 first using ```pip3 install pyqt6==6.7.1``` and then install the f1tenth_gym using ```pip3 install -e .```.
 
-### Scipy requires older numpy / pillow has no transpose / etc...
-In most of these cases, you can resolve these problems by ```pip3 install --upgrade <troublesome_package>```. i.e if you are facing a scipy problem with "numpy has no Inf", then you can call ```pip3 install --upgrade scipy```. Usually the three packages that can break are scipy, numpy, and pillow.
+### Gym install hangs on PyQt6>6.7.1 installation
+This has been documented happening on VMWare Fusion for Mac. This stems from using a server image of Ubuntu 22.04. Specifically, this happens because PyQt6 prompts you to accept its GPL license which you can not see/accept from a standard pip install. Please resort to installing PyQt6 6.7.1 with license as that is the maximum supported version for the Ubuntu 22.04 Arm Server Image. To resolve this, first install pyqt6 first using ```pip3 install pyqt6==6.7.1 --config-settings --config-license= --verbose``` and then install the f1tenth_gym using ```pip3 install -e .```.
+
+### AttributeError: module 'coverage' has no attribute 'types'
+This is due to an outdated coverage package. To resolve this, run ```pip3 install --upgrade coverage```. The minimum coverage version required is 7.6.1.
+
+### ImportError: cannot import name 'Transpose' from 'PIL.Image'
+This is due to an outdated pillow version. To resolve this, run ```pip3 install --upgrade pillow```. The minimum pillow version required is 9.1.0.
+
+### ValueError: numpy.dtype size changed, may indicate binary incompatibility
+This is due to an outdated scipy version. To resolve this, run ```pip3 install --upgrade scipy```. The minimum scipy version required is 1.13.0.
 
 ### "opencv>=3. invalid" error on pip install
 This indicates that you have outdated pip, wheel or setuptools. To resolve this, you can run ```python3 -m pip install --upgrade pip wheel setuptools```. This will upgrade all tools used by python when pip installing packages.
