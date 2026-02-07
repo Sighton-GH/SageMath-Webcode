@@ -1,5 +1,3 @@
-docker-compose up
-docker exec -it f1tenth_gym_ros-sim-1 /bin/bash
 # F1TENTH Gym ROS2 communication bridge
 This repository provides a ROS 2 bridge that turns the F1TENTH Gym environment into a ROS2 simulation.
 
