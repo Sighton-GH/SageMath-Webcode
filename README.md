@@ -221,6 +221,30 @@ Settings that change how the simulation behaves.
 - Map path: can be maps/levine or a built-in gym track name like Spielberg.
 - num_agent: 1 or 2 (multi-agent >2 not supported yet).
 
+### Using a different map
+1) Edit `map_path` in f1tenth_gym_ros/config/sim.yaml:
+- Example package-relative: `maps/levine`
+- Example built-in gym track: `Spielberg`
+
+2) Rebuild inside the container:
+```powershell
+docker exec -it f1tenth_gym_ros-sim-1 /bin/bash
+```
+```bash
+source /opt/ros/humble/setup.bash
+cd /sim_ws
+colcon build --symlink-install
+```
+
+3) Relaunch the bridge:
+```bash
+ros2 launch f1tenth_gym_ros gym_bridge_launch.py
+```
+
+Notes:
+- For custom maps, keep the .yaml and .png together in the maps folder.
+- Example: maps/levine resolves to maps/levine.yaml + maps/levine.png.
+
 <details>
 <summary>Keyboard teleop (default)</summary>
 
