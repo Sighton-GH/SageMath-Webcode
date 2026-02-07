@@ -105,6 +105,29 @@ ros2 launch f1tenth_gym_ros gym_bridge_launch.py
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
+## WASD + Arrow key teleop (recommended)
+This repo includes a simple keyboard teleop node that uses WASD and arrow keys.
+
+Run inside the sim container:
+```bash
+ros2 run f1tenth_gym_ros wasd_teleop
+```
+
+Key mapping:
+- W / Up Arrow: increase speed (forward)
+- S / Down Arrow: decrease speed (reverse)
+- A / Left Arrow: steer left
+- D / Right Arrow: steer right
+- Space: stop
+- R: reset speed + steering
+- Q / E: fine steering trim
+
+Tuning (optional):
+```bash
+ros2 run f1tenth_gym_ros wasd_teleop --ros-args \
+   -p speed_step:=0.5 -p steer_step:=0.1 -p max_speed:=5.0 -p max_steer:=0.4
+```
+
 ## Troubleshooting
 ### Foxglove connection failed
 Fixes:
