@@ -4,12 +4,18 @@ This repository provides a ROS 2 bridge that turns the F1TENTH Gym environment i
 If you are new to ROS or Docker, start with the Windows + Docker Desktop + noVNC section.
 
 ## Supported systems
+These are the supported OS and runtime combinations.
 - Ubuntu native (tested on 22.04 and 24.04) with ROS 2.
 - Windows 10/11, macOS, and Ubuntu with an NVIDIA GPU (via WSL2 and NVIDIA Container Toolkit).
 - Windows 10/11, macOS, and Ubuntu without an NVIDIA GPU (using noVNC).
 
+## Setup options
+Pick the option that matches your platform and goals.
+- Recommended for simplicity: Windows + Docker Desktop + noVNC.
+- Recommended for performance: Native Ubuntu 22.04 with ROS 2 or Docker with NVIDIA GPU.
+
 <details>
-<summary>Windows + Docker Desktop + noVNC (Beginner friendly)</summary>
+<summary>Windows + Docker Desktop + noVNC (Beginner friendly, recommended for simplicity)</summary>
 
 ### 0) Install prerequisites (Windows)
 #### A) Install Docker Desktop
@@ -117,7 +123,7 @@ Use Foxglove:
 </details>
 
 <details>
-<summary>Native on Ubuntu 22.04 (Recommended)</summary>
+<summary>Native on Ubuntu 22.04 (Recommended for performance)</summary>
 
 ### Step-by-step install (fresh workspace)
 1. **Install ROS 2 Humble.** Follow the instructions here: https://docs.ros.org/en/humble/Installation.html
@@ -157,7 +163,7 @@ Once you're done, continue to Launching the Simulation below.
 </details>
 
 <details>
-<summary>Docker with an NVIDIA GPU</summary>
+<summary>Docker with an NVIDIA GPU (Recommended for performance)</summary>
 
 **Dependencies:**
 - Docker: https://docs.docker.com/install/
@@ -176,7 +182,7 @@ rocker --nvidia --x11 --volume .:/sim_ws/src/f1tenth_gym_ros -- f1tenth_gym_ros
 </details>
 
 <details>
-<summary>Docker without an NVIDIA GPU (noVNC)</summary>
+<summary>Docker without an NVIDIA GPU (noVNC, simplest cross-platform)</summary>
 
 **Dependencies:**
 - Docker
