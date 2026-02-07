@@ -1,52 +1,85 @@
-# F1TENTH Gym ROS2 communication bridge
+# F1TENTH Gym ROS2 Bridge (Beginner Setup Guide)
 This repository provides a ROS 2 bridge that turns the F1TENTH Gym environment into a ROS2 simulation.
 
-If you are a beginner, start with the Docker Desktop + noVNC path below. It is the most reliable on Windows.
+This guide is written for beginners and assumes nothing is set up yet.
 
-## Supported systems
-- Ubuntu native (tested on 22.04 and 24.04) with ROS 2.
-- Windows 10/11, macOS, and Ubuntu with an NVIDIA GPU (via WSL2 and NVIDIA Container Toolkit).
-- Windows 10/11, macOS, and Ubuntu without an NVIDIA GPU (using noVNC).
+## What you will install
+- Docker Desktop (to run the simulator in containers)
+- VS Code (recommended editor)
+- Git (to download the repo)
 
-## Quick start (Windows + Docker Desktop + noVNC)
-This is the easiest path and the one used in the setup notes.
+## 0) Install prerequisites (Windows)
+### A) Install Docker Desktop
+1) Download: https://www.docker.com/products/docker-desktop/
+2) Install with defaults (Linux containers enabled).
+3) Start Docker Desktop and wait until it says "Running".
 
-### 1) Clone the repos (dev-humble)
+### B) Install VS Code
+1) Download: https://code.visualstudio.com/
+2) Install with defaults.
+
+### C) Install Git
+1) Download: https://git-scm.com/downloads
+2) Install with defaults.
+
+## 1) Clone your repo
+Open PowerShell and run:
 ```powershell
 mkdir d:\RacerBot
 cd d:\RacerBot
 
-git clone -b dev-humble https://github.com/f1tenth/f1tenth_gym_ros.git
-
-cd d:\RacerBot\f1tenth_gym_ros
-git clone -b dev-humble https://github.com/f1tenth/f1tenth_gym.git
+git clone -b dev-humble https://github.com/Sighton-GH/SageMath-Webcode.git f1tenth_gym_ros
 ```
 
-The Gym repo must be nested at:
+Open the folder in VS Code:
+```powershell
+code d:\RacerBot\f1tenth_gym_ros
+```
+
+## 2) Verify required folders exist
+Make sure this folder exists:
 ```
 d:\RacerBot\f1tenth_gym_ros\f1tenth_gym\f1tenth_gym
 ```
+If it does not exist, stop and ask for help before continuing.
 
-### 2) Build the image
+## 3) Build the Docker image
 ```powershell
 cd d:\RacerBot\f1tenth_gym_ros
+
 docker compose build
 ```
 
-### 3) Start containers
+This first build can take a long time.
+
+## 4) Start the containers
 ```powershell
 docker compose up -d
 ```
 
-### 4) Open noVNC
-Open http://localhost:8080/vnc.html and click Connect.
+You should now have:
+- f1tenth_gym_ros-sim-1
+- f1tenth_gym_ros-novnc-1
 
-### 5) Launch the simulation
+## 5) Open the noVNC display
+Open in your browser:
+```
+http://localhost:8080/vnc.html
+```
+Click **Connect**.
+
+## 6) Launch the simulation
+Run this from PowerShell:
 ```powershell
 docker exec -d f1tenth_gym_ros-sim-1 bash -lc "source /sim_ws/.venv/bin/activate; source /opt/ros/humble/setup.bash; source /sim_ws/install/local_setup.bash; ros2 launch f1tenth_gym_ros gym_bridge_launch.py 2>&1 | tee /tmp/gym_bridge.log"
 ```
 
-### 6) Connect Foxglove
+Optional: check logs
+```powershell
+docker exec f1tenth_gym_ros-sim-1 bash -lc "tail -n 50 /tmp/gym_bridge.log"
+```
+
+## 7) Connect Foxglove
 1) Open https://app.foxglove.dev
 2) Add a connection:
    - Connection type: Foxglove WebSocket
@@ -54,98 +87,45 @@ docker exec -d f1tenth_gym_ros-sim-1 bash -lc "source /sim_ws/.venv/bin/activate
 3) Import the layout file:
    - d:\RacerBot\f1tenth_gym_ros\launch\gym_bridge_foxglove.json
 
-## Native Ubuntu 22.04 (ROS 2 Humble)
-1) Install ROS 2 Humble: https://docs.ros.org/en/humble/Installation.html
-2) Create workspace and venv:
-```bash
-mkdir -p $HOME/sim_ws/src
-python3 -m venv --system-site-packages $HOME/sim_ws/.venv
-source $HOME/sim_ws/.venv/bin/activate
-python3 -m pip install -U pip
+## 8) Drive the car (WASD + arrows)
+Run inside the sim container:
+```powershell
+docker exec -it f1tenth_gym_ros-sim-1 /bin/bash
 ```
-3) Clone repos:
+Then:
 ```bash
-cd $HOME/sim_ws/src
-git clone -b dev-humble https://github.com/f1tenth/f1tenth_gym_ros.git
-cd $HOME/sim_ws/src/f1tenth_gym_ros
-git clone -b dev-humble https://github.com/f1tenth/f1tenth_gym.git
-```
-4) Install Gym:
-```bash
-cd $HOME/sim_ws/src/f1tenth_gym_ros/f1tenth_gym/f1tenth_gym
-pip install -e .
-```
-5) Install deps and build:
-```bash
-source /opt/ros/humble/setup.bash
-cd $HOME/sim_ws
-rosdep install -i --from-path src --rosdistro humble -y
-colcon build
-```
-
-## Launching the simulation (any setup)
-```bash
-source $HOME/sim_ws/.venv/bin/activate
 source /opt/ros/humble/setup.bash
 source /sim_ws/install/local_setup.bash
-ros2 launch f1tenth_gym_ros gym_bridge_launch.py
-```
-
-## Configuration
-- Config file: f1tenth_gym_ros/config/sim.yaml
-- Map path: can be maps/levine or a built-in gym track name like Spielberg.
-- num_agent: 1 or 2 (multi-agent >2 not supported yet).
-
-## Keyboard teleop
-1) Set kb_teleop: true in f1tenth_gym_ros/config/sim.yaml
-2) Run:
-```bash
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
-```
-
-## WASD + Arrow key teleop (recommended)
-This repo includes a simple keyboard teleop node that uses WASD and arrow keys.
-
-Run inside the sim container:
-```bash
 ros2 run f1tenth_gym_ros wasd_teleop
 ```
 
 Key mapping:
-- W / Up Arrow: increase speed (forward)
-- S / Down Arrow: decrease speed (reverse)
+- W / Up Arrow: forward
+- S / Down Arrow: reverse
 - A / Left Arrow: steer left
 - D / Right Arrow: steer right
 - Space: stop
 - R: reset speed + steering
 - Q / E: fine steering trim
 
-Tuning (optional):
-```bash
-ros2 run f1tenth_gym_ros wasd_teleop --ros-args \
-   -p speed_step:=0.5 -p steer_step:=0.1 -p max_speed:=5.0 -p max_steer:=0.4
-```
+## Reset the car to origin
+Use Foxglove:
+1) In the 3D panel settings, set Fixed frame to `map`.
+2) Use the **2D Pose Estimate** tool.
+3) Click at the origin and drag to set heading.
 
 ## Troubleshooting
 ### Foxglove connection failed
-Fixes:
-- Use connection type Foxglove WebSocket (not ROS/rosbridge).
-- Ensure port 8765 is published in docker-compose.yml.
-- Reconnect to ws://localhost:8765.
+- Make sure you selected **Foxglove WebSocket**, not ROS/rosbridge.
+- Confirm port mapping exists:
+  ```powershell
+  docker port f1tenth_gym_ros-sim-1 8765
+  ```
+- Reconnect using ws://localhost:8765
 
-### Build error: editable install path not found
-Cause: the Gym repo is nested. Use the path:
-```
-/sim_ws/src/f1tenth_gym_ros/f1tenth_gym/f1tenth_gym
-```
+### Build is slow
+- First build is slow by design.
+- Rebuilds are faster because BuildKit cache is enabled.
 
-### Build error: uv-build not properly installed
-Fix: install uv_build in system Python before installing the gym package in system Python (handled in Dockerfile).
-
-### ModuleNotFoundError: No module named f1tenth_gym
-Fix: install f1tenth_gym into system Python inside the image (handled in Dockerfile).
-
-## Build speed tips
-- Docker BuildKit cache is enabled for APT and pip.
-- A .dockerignore file reduces build context size.
-- Rebuilds will reuse cached layers.
+## Optional: Native Ubuntu (ROS 2 Humble)
+If you want native Ubuntu instructions, see README.old.md.
