@@ -215,14 +215,11 @@ ros2 launch f1tenth_gym_ros gym_bridge_launch.py
 
 </details>
 
-<details>
-<summary>Configuration</summary>
-
+## Configuration
+Settings that change how the simulation behaves.
 - Config file: f1tenth_gym_ros/config/sim.yaml
 - Map path: can be maps/levine or a built-in gym track name like Spielberg.
 - num_agent: 1 or 2 (multi-agent >2 not supported yet).
-
-</details>
 
 <details>
 <summary>Keyboard teleop (default)</summary>
@@ -260,8 +257,8 @@ ros2 run f1tenth_gym_ros wasd_teleop --ros-args \
 
 </details>
 
-<details>
-<summary>Troubleshooting</summary>
+## Troubleshooting
+Common setup issues and fixes.
 
 ### Foxglove connection failed
 - Use connection type Foxglove WebSocket (not ROS/rosbridge).
@@ -279,8 +276,6 @@ Fix: install uv_build in system Python before installing the gym package in syst
 
 ### ModuleNotFoundError: No module named f1tenth_gym
 Fix: install f1tenth_gym into system Python inside the image (handled in Dockerfile).
-
-</details>
 
 ## Build speed tips
 - Docker BuildKit cache is enabled for APT and pip.
