@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.5
 # MIT License
 
 # Copyright (c) 2020 Hongrui Zheng
@@ -25,8 +26,12 @@ FROM ros:humble
 SHELL ["/bin/bash", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_CACHE_DIR=/root/.cache/pip
 
-RUN apt-get update && \
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt/lists \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         git \
         nano \
@@ -43,10 +48,16 @@ WORKDIR /sim_ws
 RUN mkdir -p /sim_ws/src/f1tenth_gym_ros
 COPY . /sim_ws/src/f1tenth_gym_ros
 
-RUN python3 -m venv --system-site-packages /sim_ws/.venv && \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m venv --system-site-packages /sim_ws/.venv && \
     source /sim_ws/.venv/bin/activate && \
     pip install -U pip && \
-    pip install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym
+    pip install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym/f1tenth_gym
+
+# Install f1tenth_gym into system Python for ROS nodes built with system python
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install -U pip uv_build && \
+    pip3 install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym/f1tenth_gym
 
 ENV VIRTUAL_ENV=/sim_ws/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
