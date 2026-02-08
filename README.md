@@ -17,6 +17,10 @@ Pick the option that matches your platform and goals.
 <details>
 <summary>Windows + Docker Desktop + noVNC (Beginner friendly, recommended for simplicity)</summary>
 
+This was tested on windows but should work on Mac. Linux will be different so make changes as needed.
+
+Feel free to ask for help in the Racerbot Discord Server.
+
 ### 0) Install prerequisites (Windows)
 #### A) Install Docker Desktop
 1) Download: https://www.docker.com/products/docker-desktop/
@@ -31,8 +35,9 @@ Pick the option that matches your platform and goals.
 1) Download: https://git-scm.com/downloads
 2) Install with defaults.
 
-### 1) Clone your repo
+### 1) Clone Bryan's repo
 Open PowerShell and run:
+Or create a folder where you want it and cd into it in powershell 
 ```powershell
 mkdir d:\RacerBot
 cd d:\RacerBot
@@ -87,10 +92,12 @@ docker exec f1tenth_gym_ros-sim-1 bash -lc "tail -n 50 /tmp/gym_bridge.log"
 
 ### 7) Connect Foxglove
 1) Open https://app.foxglove.dev
-2) Add a connection:
+2) Create an account
+3) Add a connection:
    - Connection type: Foxglove WebSocket
+   - Select ros2
    - URL: ws://localhost:8765
-3) Import the layout file:
+4) Import the layout file:
    - d:\RacerBot\f1tenth_gym_ros\launch\gym_bridge_foxglove.json
 
 ### 8) Drive the car (WASD + arrows)
