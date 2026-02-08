@@ -35,7 +35,7 @@ Feel free to ask for help in the Racerbot Discord Server.
 1) Download: https://git-scm.com/downloads
 2) Install with defaults.
 
-### 1) Clone Bryan's repo
+### 1) Clone the modified repo
 Open PowerShell and run:
 Or create a folder where you want it and cd into it in powershell 
 ```powershell
