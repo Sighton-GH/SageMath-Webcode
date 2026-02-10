@@ -15,7 +15,7 @@ Pick the option that matches your platform and goals.
 - Recommended for performance: Native Ubuntu 22.04 with ROS 2 or Docker with NVIDIA GPU.
 
 <details>
-<summary>Windows + Docker Desktop + noVNC (Beginner friendly, recommended for simplicity)</summary>
+<summary>Standard Setup with Docker, noVNC, and Foxglove</summary>
 
 This was tested on windows but should work on Mac. Linux will be different so make changes as needed.
 
@@ -134,7 +134,7 @@ Use Foxglove:
 </details>
 
 <details>
-<summary>Native on Ubuntu 22.04 (Recommended for performance)</summary>
+<summary>Native on Ubuntu 22.04 (best performance)</summary>
 
 ### Step-by-step install (fresh workspace)
 1. **Install ROS 2 Humble.** Follow the instructions here: https://docs.ros.org/en/humble/Installation.html
@@ -174,7 +174,7 @@ Once you're done, continue to Launching the Simulation below.
 </details>
 
 <details>
-<summary>Docker with an NVIDIA GPU (Recommended for performance)</summary>
+<summary>Docker with an NVIDIA GPU (better performance)</summary>
 
 **Dependencies:**
 - Docker: https://docs.docker.com/install/
@@ -193,7 +193,7 @@ rocker --nvidia --x11 --volume .:/sim_ws/src/f1tenth_gym_ros -- f1tenth_gym_ros
 </details>
 
 <details>
-<summary>Docker without an NVIDIA GPU (noVNC, simplest cross-platform)</summary>
+<summary>Original instructions from RoboRacer (OLD)</summary>
 
 **Dependencies:**
 - Docker
