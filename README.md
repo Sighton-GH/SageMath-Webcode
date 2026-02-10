@@ -70,6 +70,10 @@ Apple Silicon (mac) note:
    ```bash
    docker compose build --build-arg ENABLE_ARM_QT=0
    ```
+- To force install Qt deps (if build still fails), use:
+   ```bash
+   docker compose build --build-arg ENABLE_ARM_QT=1
+   ```
 
 ### 4) Start containers
 ```powershell
@@ -321,6 +325,15 @@ Fix: install f1tenth_gym into system Python inside the image (handled in Dockerf
 Fix: rebuild (Qt dev tools auto-install on arm64), or force enable if disabled:
 ```bash
 docker compose build --build-arg ENABLE_ARM_QT=1
+```
+
+If it still fails, verify qmake exists inside the image:
+```bash
+docker run --rm -it f1tenth_gym_ros qmake -v
+```
+If qmake is missing, the Qt packages did not install. Rebuild without cache:
+```bash
+docker compose build --no-cache --build-arg ENABLE_ARM_QT=1
 ```
 
 ## Build speed tips
