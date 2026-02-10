@@ -54,8 +54,14 @@ RUN --mount=type=cache,target=/var/cache/apt \
         apt-get install -y --no-install-recommends \
             qt6-base-dev \
             qt6-base-dev-tools \
+            qt6-tools-dev \
             qt6-tools-dev-tools && \
         rm -rf /var/lib/apt/lists/*; \
+    fi
+
+RUN if [ "$TARGETARCH" = "arm64" ] && [ "$ENABLE_ARM_QT" != "0" ]; then \
+        echo 'export PATH=/usr/lib/qt6/bin:$PATH' >/etc/profile.d/qt6.sh; \
+        echo 'export QMAKE=/usr/lib/qt6/bin/qmake' >>/etc/profile.d/qt6.sh; \
     fi
 
 WORKDIR /sim_ws
