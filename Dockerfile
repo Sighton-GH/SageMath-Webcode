@@ -53,12 +53,12 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m venv --system-site-packages /sim_ws/.venv && \
     source /sim_ws/.venv/bin/activate && \
     pip install -U pip && \
-    pip install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym/f1tenth_gym
+    pip install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym
 
 # Install f1tenth_gym into system Python for ROS nodes built with system python
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install -U pip uv_build && \
-    pip3 install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym/f1tenth_gym
+    pip3 install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym
 
 ENV VIRTUAL_ENV=/sim_ws/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
