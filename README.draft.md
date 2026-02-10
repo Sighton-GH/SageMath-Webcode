@@ -3,15 +3,42 @@
 
 This repository provides a ROS 2 bridge that turns the F1TENTH Gym environment into a ROS 2 simulation.
 
-If you are new to ROS or Docker, start with the Windows + Docker Desktop + noVNC quick start.
+If you are new to ROS or Docker, start with the Windows + Docker Desktop + noVNC steps in Setup options.
 
-## Quick start (Windows + Docker + noVNC)
+## Table of contents
+
+- [Supported systems](#supported-systems)
+- [Setup options](#setup-options)
+- [Launching the simulation](#launching-the-simulation)
+- [Ports and URLs](#ports-and-urls)
+- [Simulation settings](#simulation-settings)
+- [Maps](#maps)
+- [Teleop](#teleop)
+- [Topics](#topics)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
+- [Developing your own agent](#developing-your-own-agent)
+
+## Supported systems
+
+- Ubuntu native (tested on 22.04 and 24.04) with ROS 2.
+- Windows 10/11, macOS, and Ubuntu with an NVIDIA GPU (via WSL2 and NVIDIA Container Toolkit).
+- Windows 10/11, macOS, and Ubuntu without an NVIDIA GPU (using noVNC).
+
+## Setup options
+
+<details>
+<summary>Standard setup with Docker, noVNC, and Foxglove (recommended)</summary>
+
+This was tested on Windows but should work on Mac. Linux will be different, so make changes as needed.
+
+### Quick start (Windows + Docker + noVNC)
 
 1) Install prerequisites: Docker Desktop, VS Code, Git.
 2) Clone and open the repo.
 3) Build and start containers.
 4) Open noVNC and launch the bridge.
-5) Connect Foxglove and import the layout file.
+5) Connect Foxglove and import the config launch JSON file.
 6) Drive with WASD.
 
 ### 1) Install prerequisites
@@ -81,11 +108,11 @@ docker exec f1tenth_gym_ros-sim-1 bash -lc "tail -n 50 /tmp/gym_bridge.log"
 1) Open [Foxglove](https://app.foxglove.dev).
 2) Create an account.
 3) Add a connection:
-   - Connection type: Foxglove WebSocket
-   - Select ROS 2
-   - URL: ws://localhost:8765
-4) Import the layout file:
-   - d:\RacerBot\f1tenth_gym_ros\launch\gym_bridge_foxglove.json
+  - Connection type: Foxglove WebSocket
+  - Select ROS 2
+  - URL: ws://localhost:8765
+4) Import the config launch JSON file:
+  - d:\RacerBot\f1tenth_gym_ros\launch\gym_bridge_foxglove.json
 
 ### 8) Drive the car (WASD + arrows)
 
@@ -120,35 +147,6 @@ Use Foxglove:
 1) In the 3D panel settings, set Fixed frame to map.
 2) Use the 2D Pose Estimate tool.
 3) Click at the origin and drag to set heading.
-
-## Table of contents
-
-- [Supported systems](#supported-systems)
-- [Setup options](#setup-options)
-- [Launching the simulation](#launching-the-simulation)
-- [Ports and URLs](#ports-and-urls)
-- [Simulation settings](#simulation-settings)
-- [Maps](#maps)
-- [Teleop](#teleop)
-- [Topics](#topics)
-- [Troubleshooting](#troubleshooting)
-- [FAQ](#faq)
-- [Developing your own agent](#developing-your-own-agent)
-
-## Supported systems
-
-- Ubuntu native (tested on 22.04 and 24.04) with ROS 2.
-- Windows 10/11, macOS, and Ubuntu with an NVIDIA GPU (via WSL2 and NVIDIA Container Toolkit).
-- Windows 10/11, macOS, and Ubuntu without an NVIDIA GPU (using noVNC).
-
-## Setup options
-
-<details>
-<summary>Standard setup with Docker, noVNC, and Foxglove (recommended)</summary>
-
-This was tested on Windows but should work on Mac. Linux will be different, so make changes as needed.
-
-Follow the Quick start section above.
 
 Apple Silicon (mac) note:
 
@@ -270,6 +268,10 @@ source /opt/ros/humble/setup.bash
 source /sim_ws/install/local_setup.bash
 ros2 launch f1tenth_gym_ros gym_bridge_launch.py
 ```
+
+After the bridge is running, connect Foxglove and import the config launch JSON file. It preloads the recommended panels, topics, and layout for the sim:
+
+- d:\RacerBot\f1tenth_gym_ros\launch\gym_bridge_foxglove.json
 
 ## Ports and URLs
 
