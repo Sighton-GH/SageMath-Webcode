@@ -64,7 +64,12 @@ cd d:\RacerBot\f1tenth_gym_ros
 docker compose build
 ```
 
-Note: The compose file forces linux/amd64 to avoid PyQt6 build failures on Apple Silicon.
+Apple Silicon (mac) note:
+- Qt dev tools are installed automatically on arm64 builds.
+- To disable (faster build, but PyQt6 may fail), use:
+   ```bash
+   docker compose build --build-arg ENABLE_ARM_QT=0
+   ```
 
 ### 4) Start containers
 ```powershell
@@ -311,6 +316,12 @@ Fix: install uv_build in system Python before installing the gym package in syst
 
 ### ModuleNotFoundError: No module named f1tenth_gym
 Fix: install f1tenth_gym into system Python inside the image (handled in Dockerfile).
+
+### PyQt6 build error on Apple Silicon (arm64)
+Fix: rebuild (Qt dev tools auto-install on arm64), or force enable if disabled:
+```bash
+docker compose build --build-arg ENABLE_ARM_QT=1
+```
 
 ## Build speed tips
 - Docker BuildKit cache is enabled for APT and pip.
