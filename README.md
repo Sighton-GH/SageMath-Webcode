@@ -42,7 +42,7 @@ Or create a folder where you want it and cd into it in powershell
 mkdir d:\RacerBot
 cd d:\RacerBot
 
-git clone -b dev-humble https://github.com/Sighton-GH/SageMath-Webcode.git f1tenth_gym_ros
+git clone -b main https://github.com/Sighton-GH/SageMath-Webcode.git f1tenth_gym_ros
 ```
 
 Open the folder in VS Code:
@@ -91,6 +91,7 @@ docker exec f1tenth_gym_ros-sim-1 bash -lc "tail -n 50 /tmp/gym_bridge.log"
 ```
 
 ### 7) Connect Foxglove
+
 1) Open https://app.foxglove.dev
 2) Create an account
 3) Add a connection:
@@ -101,6 +102,7 @@ docker exec f1tenth_gym_ros-sim-1 bash -lc "tail -n 50 /tmp/gym_bridge.log"
    - d:\RacerBot\f1tenth_gym_ros\launch\gym_bridge_foxglove.json
 
 ### 8) Drive the car (WASD + arrows)
+
 Run inside the sim container:
 ```powershell
 docker exec -it f1tenth_gym_ros-sim-1 /bin/bash
