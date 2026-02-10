@@ -64,6 +64,8 @@ cd d:\RacerBot\f1tenth_gym_ros
 docker compose build
 ```
 
+Note: The compose file forces linux/amd64 to avoid PyQt6 build failures on Apple Silicon.
+
 ### 4) Start containers
 ```powershell
 docker compose up -d
