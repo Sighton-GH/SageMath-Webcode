@@ -25,6 +25,7 @@ services:
   sim:
     image: f1tenth_gym_ros
     build: ./
+    platform: linux/amd64
     volumes: 
       - .:/sim_ws/src/f1tenth_gym_ros
     environment:

@@ -23,9 +23,6 @@
 
 FROM ros:humble
 
-ARG TARGETARCH
-ARG ENABLE_ARM_QT=auto
-
 SHELL ["/bin/bash", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -47,22 +44,6 @@ RUN --mount=type=cache,target=/var/cache/apt \
         ros-humble-rviz2 && \
     rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt/lists \
-    if [ "$TARGETARCH" = "arm64" ] && [ "$ENABLE_ARM_QT" != "0" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            qt6-base-dev \
-            qt6-base-dev-tools \
-            qt6-tools-dev \
-            qt6-tools-dev-tools && \
-        rm -rf /var/lib/apt/lists/*; \
-    fi
-
-RUN if [ "$TARGETARCH" = "arm64" ] && [ "$ENABLE_ARM_QT" != "0" ]; then \
-        echo 'export PATH=/usr/lib/qt6/bin:$PATH' >/etc/profile.d/qt6.sh; \
-        echo 'export QMAKE=/usr/lib/qt6/bin/qmake' >>/etc/profile.d/qt6.sh; \
-    fi
 
 WORKDIR /sim_ws
 RUN mkdir -p /sim_ws/src/f1tenth_gym_ros

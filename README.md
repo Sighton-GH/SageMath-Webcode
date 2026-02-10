@@ -80,20 +80,11 @@ cd d:\RacerBot\f1tenth_gym_ros
 docker compose build
 ```
 
+docker compose build --build-arg ENABLE_ARM_QT=0
+docker compose build --build-arg ENABLE_ARM_QT=1
 Apple Silicon (mac) note:
 
-- Qt dev tools are installed automatically on arm64 builds.
-- To disable (faster build, but PyQt6 may fail), use:
-
-```bash
-docker compose build --build-arg ENABLE_ARM_QT=0
-```
-
-- To force install Qt deps (if build still fails), use:
-
-```bash
-docker compose build --build-arg ENABLE_ARM_QT=1
-```
+- The compose file forces linux/amd64 to avoid PyQt6 build failures on arm64.
 
 ### 4) Start containers
 
@@ -390,23 +381,10 @@ Fix: install f1tenth_gym into system Python inside the image (handled in Dockerf
 
 ### PyQt6 build error on Apple Silicon (arm64)
 
-Fix: rebuild (Qt dev tools auto-install on arm64), or force enable if disabled:
-
-```bash
 docker compose build --build-arg ENABLE_ARM_QT=1
-```
-
-If it still fails, verify qmake exists inside the image:
-
-```bash
 docker run --rm -it f1tenth_gym_ros qmake -v
-```
-
-If qmake is still missing, rebuild without cache so Qt packages are reinstalled:
-
-```bash
 docker compose build --no-cache --build-arg ENABLE_ARM_QT=1
-```
+Fix: use linux/amd64 emulation (set in docker-compose.yml).
 
 If qmake is missing, the Qt packages did not install. Rebuild without cache:
 
